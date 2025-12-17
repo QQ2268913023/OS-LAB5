@@ -65,18 +65,16 @@ c
 
 #### 3.2.1 译码：在 `insn32.decode` 中匹配 `ecall` 并分派到 `trans_ecall`
 
-```markdown
 ![insn32.decode 译码命中 ecall 并调用 trans_ecall](images/03_insn32_decode_ecall.png)
-```
 
 如图所示，在 `target/riscv/insn32.decode` 中，SYSTEM 类指令（opcode `0x73`）会进一步解析字段后分派到具体转接调用函数也就是`trans_ecall()`。
 
 
 #### 3.2.2 转接：`trans_ecall()` 
 
-```markdown
+
 ![trans_ecall 的核心实现：generate_exception + exit_tb](images/04_trans_ecall.png)
-```
+
 
 代码里通过`trans_ecall()`主要作用是让翻译好的指令调用相关的处理函数 ，交给后续异常提交流程处理，我们就不在这里过多讲解TCG有关的内容(下一部分内容会介绍TCG)，主要解释后面异常处理部分`riscv_cpu_do_interrupt`函数有关的内容。
 
@@ -84,24 +82,24 @@ c
 
 #### 3.2.3 原因修正：用 `ecall_cause_map[env->priv]` 指明是哪种特权态下的ecall
 
-```markdown
+
 ![ecall_cause_map：按特权态映射 U/S/H/M ecall cause](images/05_ecall_cause_map.png)
-```
+
 
 图中 `ecall_cause_map` 定义了不同特权态下 ecall 对应的异常原因编码（U/S/H/M 分别对应不同的 EXCP 常量），后面会说这有啥用。
 
-```markdown
+
 ![cause 修正逻辑：若为 U_ECALL 则按 env->priv 映射](images/06_ecall_cause_fix.png)
-```
+
 
 如图所示，在异常提交流程中，如果当前 `cause == RISCV_EXCP_U_ECALL`，会根据运行时 CPU 的 `env->priv` 将其替换为 `ecall_cause_map[env->priv]`。也就是在翻译期只表达“发生了 ecall”，在运行期提交前再根据真实特权态得到“到底是 U/S/M 哪一种 ecall”，之后才能根据特权态的不同来进行相应操作。
 
 
 #### 3.2.4 异常提交：写 sepc/scause/mstatus，并跳转到 stvec，切换到 S-mode（或 M-mode）
 
-```markdown
+
 ![riscv_cpu_do_interrupt：S-mode trap 分支写入 sepc/scause 并跳转 stvec](images/07_do_interrupt_smode.png)
-```
+
 
 图中展示了异常提交时进入 S-mode 处理 trap 的关键语句（`handle the trap in S-mode` 分支），这部分就是我们处理U态的ecall指令的关键部分，其核心效果为：
 
@@ -145,9 +143,9 @@ c
 为观察 ecall 的处理效果，在断点处打印陷入前后关键字段。调试输出如下：
 
 **（1）提交前状态 BEFORE：**
-```markdown
+
 ![ecall BEFORE：异常提交前的寄存器/CSR 状态](images/13_ecall_before.png)
-```
+
 ```
 BEFORE: async=0 priv=0 pc=0x8000104 stvec=0xffffffffc0200e8c
         sepc=0x8000020 scause=0x3 mstatus=0x8000000000046002 exc_idx=0x8
@@ -163,9 +161,9 @@ BEFORE: async=0 priv=0 pc=0x8000104 stvec=0xffffffffc0200e8c
 *  其他部分是上次操作的遗留值，就先不做分析
 
 **（2）提交后状态 AFTER：**
-```markdown
+
 ![ecall AFTER：异常提交后的寄存器/CSR 状态](images/14_ecall_after.png)
-```
+
 ```
 AFTER: priv=1 pc=0xffffffffc0200e8c stvec=0xffffffffc0200e8c
        sepc=0x8000104 scause=0x8 mstatus=0x8000000000046020
@@ -197,18 +195,18 @@ AFTER: priv=1 pc=0xffffffffc0200e8c stvec=0xffffffffc0200e8c
 
 #### 3.4.1 译码：在 `insn32.decode` 中匹配 `sret` 并分派到 `trans_sret`
 
-```markdown
+
 ![insn32.decode 译码命中 sret 并调用 trans_sret](images/08_insn32_decode_sret.png)
-```
+
 
 如图所示，在 `target/riscv/insn32.decode` 中，当 SYSTEM 指令（opcode `0x73`）进一步解析字段后匹配到 `sret` 的编码形式，就会进入对应分支并调用 `trans_sret(ctx, &u.f_empty)`。这一步就是**在译码阶段确认当前指令为 sret，并将其交给翻译器生成语义**。
 
 
 #### 3.4.2 转接：`trans_sret()` 
 
-```markdown
+
 ![trans_sret 的核心实现：gen_helper_sret + exit_tb](images/09_trans_sret.png)
-```
+
 
 
 `trans_sret()` 就是让翻译好的sret指令调用相关处理函数，其中sret的主要操作是在`helper_sret()`中执行的，我们重点讲解这部分。
@@ -216,9 +214,9 @@ AFTER: priv=1 pc=0xffffffffc0200e8c stvec=0xffffffffc0200e8c
 
 #### 3.4.3 执行：`helper_sret()` 依据 `sepc` 与 `mstatus` 恢复返回地址与特权态
 
-```markdown
+
 ![helper_sret：读取 sepc 作为返回地址，并根据 mstatus 恢复特权态](images/10_helper_sret.png)
-```
+
 
 图中 `helper_sret(CPURISCVState *env, target_ulong cpu_pc_deb)` 展示了 sret 的关键执行语义，其核心步骤为：
 
@@ -249,16 +247,16 @@ AFTER: priv=1 pc=0xffffffffc0200e8c stvec=0xffffffffc0200e8c
 1. **Guest 侧定位到 `sret` 指令（窗口 B）**
    在 Guest 侧 gdb 的反汇编输出中可以看到当前执行位置已经来到 `__trapret`，并即将执行 `sret` 指令：
 
-```markdown
+
 ![Guest 侧命中 __trapret 并即将执行 sret](images/15_guest_trapret_sret.png)
-```
+
 
 2. **Host 侧在 QEMU 中对 `helper_sret` 下断点并继续运行（窗口 C）**
    由于 3.4 的源码分析表明：`trans_sret()` 在翻译期会生成对 `helper_sret()` 的调用，因此本节选择直接在 QEMU 的 `helper_sret` 入口处设置断点，用来捕获 `sret` 的运行期语义执行位置。命中断点的现象如下：
 
-```markdown
+
 ![Host 侧命中 helper_sret 断点](images/16_host_hit_helper_sret.png)
-```
+
 
 从图中可以确认：执行 `sret` 时，QEMU 进入了 `target/riscv/op_helper.c` 中的 `helper_sret`，说明 `sret` 的关键处理逻辑确实在 helper 中完成。
 
@@ -281,9 +279,9 @@ printf "AFTER_sret:  priv=%d pc=%#lx sepc=%#lx mstatus=%#lx\n", $e->priv, $e->pc
 
 **（1）提交前状态 BEFORE：**
 
-```markdown
+
 ![sret BEFORE：进入 helper_sret 前的寄存器/CSR 状态](images/17_sret_before.png)
-```
+
 
 从 BEFORE 输出可以读出：
 
@@ -302,19 +300,19 @@ finish
 
 `finish` 会运行到 `helper_sret` 返回，并在 gdb 中显示返回值（即 `helper_sret` 返回的 `retpc`）。截图中可以看到 “Value returned is $1 = ...”，随后通过 `p/x` 将其转换为十六进制：
 
-```markdown
+
 ![finish 运行到 helper_sret 返回并显示返回值](images/18_sret_finish_ret.png)
 
 ![p/x 将返回值转为十六进制](images/19_sret_retpc_hex.png)
-```
+
 
 可以验证：`helper_sret` 的返回值与 BEFORE 中的 `sepc` 一致（`retpc == sepc`），这说明 QEMU 的 `sret` 返回地址选择确实来源于 `sepc`。
 
 **（3）提交后状态 AFTER：**
 
-```markdown
+
 ![sret AFTER：执行 helper_sret 后的寄存器/CSR 状态](images/20_sret_after.png)
-```
+
 
 解释：
 
@@ -413,17 +411,17 @@ TCG IR 是 QEMU 内部定义的一种与具体硬件无关的中间表示，用�
 * `translator_loop`
 
 
-```markdown
+
 ![QEMU 中 ecall 进入 tb_gen_code](images/02_tb_gen_code.png)
-```
 
-```markdown
+
+
 ![gen_intermediate_code 调用栈](images/03_gen_intermediate_code.png)
-```
 
-```markdown
+
+
 ![translator_loop](images/04_translator_loop.png)
-```
+
 
 这说明 `ecall` **确实进入了 TCG Translation 流程**，而非被 QEMU 特判绕过。
 
@@ -444,9 +442,9 @@ p/x ((TranslationBlock*)itb)->size
 * `TB.pc + size = 0x800108`
 
 
-```markdown
+
 ![cpu_tb_exec 中查看 TB.pc 与 TB.size](images/04_cpu_tb_exec_tb.png)
-```
+
 
 说明：
 
